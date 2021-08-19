@@ -8,6 +8,7 @@ authors = ["Tibo Delor <delor.thibault@gmail.com>"]
 python = "^3.9"
 typer = "^0.3.2"
 aiohttp = "^3.7.4"
+jira = "^3.0.1"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.910"

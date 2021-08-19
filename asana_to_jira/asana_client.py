@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List
 from urllib.parse import urljoin
 
 import aiohttp
@@ -12,6 +12,7 @@ class AsanaTask:
     title: str
     description: str
     link: str
+    tags: List[str]
 
 
 @dataclass(frozen=True)
@@ -42,7 +43,7 @@ class AsanaClient:
     async def get_task(
             self,
             task_id: str,
-            session: aiohttp.ClientSession) -> Optional[AsanaTask]:
+            session: aiohttp.ClientSession) -> AsanaTask:
         async with session.get(
             urljoin(self.base_url, f"tasks/{task_id}"),
             raise_for_status=True,
@@ -54,4 +55,31 @@ class AsanaClient:
                 title=json["data"]["name"],
                 description=json["data"]["notes"],
                 link=json['data']['permalink_url'],
+                tags=[t["gid"] for t in json['data']['tags']]
             )
+
+    async def add_comment(
+            self,
+            task_id: str,
+            html_text: str,
+            session: aiohttp.ClientSession) -> None:
+        async with session.post(
+            urljoin(self.base_url, f"tasks/{task_id}/stories"),
+            raise_for_status=True,
+            headers=self._headers(),
+            json={"data": {"html_text": html_text, "is_pinned": False}}
+        ):
+            pass
+
+    async def add_label(
+            self,
+            task_id: str,
+            tag: str,
+            session: aiohttp.ClientSession) -> None:
+        async with session.post(
+            urljoin(self.base_url, f"tasks/{task_id}/addTag"),
+            raise_for_status=True,
+            headers=self._headers(),
+            json={"data": {"tag": tag}}
+        ):
+            pass
