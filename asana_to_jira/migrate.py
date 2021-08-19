@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from asyncio.tasks import gather
 
+import aiohttp
 import typer
 from aiohttp.client import ClientSession
 from jira import JIRA
@@ -26,12 +26,12 @@ def main(
     async def _main():
         asana = AsanaClient(base_url=asana_url, token=asana_token)
         jira = JIRA(jira_url, basic_auth=(jira_username, jira_password))
-        async with ClientSession() as session:
+        connector = aiohttp.TCPConnector(force_close=True)
+        async with ClientSession(connector=connector) as session:
             logger.info("Retrieving Tasks")
             tasks = await asana.get_incomplete_tasks(asana_project_id, session)
-            await asyncio.gather(*[
-                process_asana_task(asana, jira, t, asana_label_migrated_gid, jira_project_key, session)
-                for t in tasks])
+            for t in tasks:
+                await process_asana_task(asana, jira, t, asana_label_migrated_gid, jira_project_key, session)
 
     asyncio.run(_main())
 
@@ -50,9 +50,11 @@ async def process_asana_task(
         logger.info("[Task %s] Creating Comment on asana", task_id)
         comment = f"<body>Migrated to Jira as <a href='{jira.server_url}/browse/{issue_key}'>{issue_key}</a></body>"
         await asana_client.add_comment(task_id, comment, session)
+        logger.info("[Task %s] Creating Label on asana", task_id)
         await asana_client.add_label(task_id, asana_label_migrated_gid, session)
     else:
         logger.info("[Task %s] Already Migrated", task_id)
+    logger.info("[Task %s] Done!", task_id)
 
 
 def create_jira(t: AsanaTask, jira: JIRA, project_key: str) -> str:
